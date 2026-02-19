@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}F1 Trends{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --app-bg: #f5f7fa;
+            --panel-bg: #ffffff;
+            --panel-border: #dbe2ea;
+        }
+        body {
+            font-family: "Space Grotesk", sans-serif;
+            background:
+                radial-gradient(circle at 20% -10%, #dbeafe 0%, transparent 45%),
+                radial-gradient(circle at 90% -20%, #ccfbf1 0%, transparent 42%),
+                var(--app-bg);
+            color: #0f172a;
+        }
+    </style>
+</head>
+<body>
+    <main class="mx-auto min-h-screen max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+        {% if messages %}
+            <div class="mb-6 space-y-2">
+                {% for message in messages %}
+                    <div class="rounded-xl border px-4 py-3 text-sm
+                        {% if message.tags == 'success' %}
+                            border-emerald-200 bg-emerald-50 text-emerald-700
+                        {% elif message.tags == 'warning' %}
+                            border-amber-200 bg-amber-50 text-amber-700
+                        {% elif message.tags == 'error' %}
+                            border-rose-200 bg-rose-50 text-rose-700
+                        {% else %}
+                            border-slate-200 bg-white text-slate-700
+                        {% endif %}
+                    ">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </main>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
+
