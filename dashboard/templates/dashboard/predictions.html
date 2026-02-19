@@ -1,0 +1,186 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}F1 Predictions | F1 Trends{% endblock %}
+
+{% block content %}
+    <section class="mb-8 space-y-3">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Heuristic Forecast</p>
+        <h1 class="text-4xl font-semibold text-slate-900">Predictions</h1>
+        <p class="max-w-3xl text-slate-600">
+            Estimated next-season winners based on weighted historical win counts.
+            This is a heuristic model based on historical win counts, not official F1 predictions.
+        </p>
+        <p class="text-sm text-slate-500">Predictions depend on available seasons in the database. Seasons used: <span class="font-medium text-slate-700">{{ seasons_range_label }}</span></p>
+    </section>
+
+    {% if is_empty %}
+        <section class="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+            <h2 class="text-lg font-semibold text-slate-900">No winner history available yet</h2>
+            <p class="mt-2 text-sm text-slate-600">Refresh data first from the dashboard to generate predictions.</p>
+            <a
+                href="{% url 'dashboard:index' %}"
+                class="mt-5 inline-flex items-center rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-800"
+            >
+                Go to Dashboard
+            </a>
+        </section>
+    {% else %}
+        <section class="mb-6 grid gap-4 lg:grid-cols-2">
+            <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <p class="text-xs uppercase tracking-wide text-slate-500">Predicted Driver Champion</p>
+                <h2 class="mt-2 text-2xl font-semibold text-slate-900">{{ predicted_driver.name }}</h2>
+                <div class="mt-4 flex items-center gap-3">
+                    <span class="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                        Score {{ predicted_driver.score }}
+                    </span>
+                    <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold
+                        {% if driver_confidence.label == 'High' %}
+                            bg-emerald-100 text-emerald-700
+                        {% elif driver_confidence.label == 'Medium' %}
+                            bg-amber-100 text-amber-700
+                        {% else %}
+                            bg-slate-100 text-slate-700
+                        {% endif %}
+                    ">
+                        Confidence {{ driver_confidence.label }} ({{ driver_confidence.value }})
+                    </span>
+                </div>
+                <p class="mt-3 text-sm text-slate-600">Last season wins: {{ predicted_driver.last_season_wins }}</p>
+            </article>
+            <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <p class="text-xs uppercase tracking-wide text-slate-500">Predicted Constructor Champion</p>
+                <h2 class="mt-2 text-2xl font-semibold text-slate-900">{{ predicted_constructor.name }}</h2>
+                <div class="mt-4 flex items-center gap-3">
+                    <span class="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                        Score {{ predicted_constructor.score }}
+                    </span>
+                    <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold
+                        {% if constructor_confidence.label == 'High' %}
+                            bg-emerald-100 text-emerald-700
+                        {% elif constructor_confidence.label == 'Medium' %}
+                            bg-amber-100 text-amber-700
+                        {% else %}
+                            bg-slate-100 text-slate-700
+                        {% endif %}
+                    ">
+                        Confidence {{ constructor_confidence.label }} ({{ constructor_confidence.value }})
+                    </span>
+                </div>
+                <p class="mt-3 text-sm text-slate-600">Last season wins: {{ predicted_constructor.last_season_wins }}</p>
+            </article>
+        </section>
+
+        <section class="mb-6 grid gap-6 lg:grid-cols-2">
+            <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 class="text-lg font-semibold text-slate-900">Top Drivers</h3>
+                <p class="mb-4 text-sm text-slate-600">Score = weighted 5-season wins + trend adjustment.</p>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                                <th class="px-2 py-2">Driver</th>
+                                <th class="px-2 py-2">Score</th>
+                                <th class="px-2 py-2">Last Season</th>
+                                <th class="px-2 py-2">5-Season Breakdown</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in driver_rows %}
+                                <tr class="border-b border-slate-100 align-top">
+                                    <td class="px-2 py-2 font-medium text-slate-800">{{ row.name }}</td>
+                                    <td class="px-2 py-2 text-slate-700">{{ row.score }}</td>
+                                    <td class="px-2 py-2 text-slate-700">{{ row.last_season_wins }}</td>
+                                    <td class="px-2 py-2 text-xs text-slate-600">
+                                        {% for item in row.wins_breakdown %}
+                                            {{ item.season }}:{{ item.wins }}{% if not forloop.last %} | {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+            <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 class="text-lg font-semibold text-slate-900">Top Constructors</h3>
+                <p class="mb-4 text-sm text-slate-600">Same heuristic applied at constructor level.</p>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                                <th class="px-2 py-2">Constructor</th>
+                                <th class="px-2 py-2">Score</th>
+                                <th class="px-2 py-2">Last Season</th>
+                                <th class="px-2 py-2">5-Season Breakdown</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in constructor_rows %}
+                                <tr class="border-b border-slate-100 align-top">
+                                    <td class="px-2 py-2 font-medium text-slate-800">{{ row.name }}</td>
+                                    <td class="px-2 py-2 text-slate-700">{{ row.score }}</td>
+                                    <td class="px-2 py-2 text-slate-700">{{ row.last_season_wins }}</td>
+                                    <td class="px-2 py-2 text-xs text-slate-600">
+                                        {% for item in row.wins_breakdown %}
+                                            {{ item.season }}:{{ item.wins }}{% if not forloop.last %} | {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </section>
+
+        <section class="grid gap-6 lg:grid-cols-2">
+            <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 class="text-lg font-semibold text-slate-900">Driver Scores</h3>
+                <p class="mb-4 text-sm text-slate-600">Top 10 by heuristic score.</p>
+                <div class="h-80">
+                    <canvas id="driverPredictionChart"></canvas>
+                </div>
+            </article>
+            <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 class="text-lg font-semibold text-slate-900">Constructor Scores</h3>
+                <p class="mb-4 text-sm text-slate-600">Top 10 by heuristic score.</p>
+                <div class="h-80">
+                    <canvas id="constructorPredictionChart"></canvas>
+                </div>
+            </article>
+        </section>
+
+        {{ driver_score_chart|json_script:"driver-score-chart-data" }}
+        {{ constructor_score_chart|json_script:"constructor-score-chart-data" }}
+    {% endif %}
+{% endblock %}
+
+{% block scripts %}
+    {% if not is_empty %}
+        <script>
+            const driverScoreData = JSON.parse(document.getElementById("driver-score-chart-data").textContent);
+            const constructorScoreData = JSON.parse(document.getElementById("constructor-score-chart-data").textContent);
+
+            const options = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { maxRotation: 40, minRotation: 20 } },
+                    y: { beginAtZero: true }
+                }
+            };
+
+            const driverCanvas = document.getElementById("driverPredictionChart");
+            if (driverCanvas && driverScoreData.labels.length > 0) {
+                new Chart(driverCanvas, { type: "bar", data: driverScoreData, options });
+            }
+
+            const constructorCanvas = document.getElementById("constructorPredictionChart");
+            if (constructorCanvas && constructorScoreData.labels.length > 0) {
+                new Chart(constructorCanvas, { type: "bar", data: constructorScoreData, options });
+            }
+        </script>
+    {% endif %}
+{% endblock %}
+

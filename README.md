@@ -4,6 +4,7 @@ Minimal local dashboard for Formula 1 constructor/driver win trends using the Jo
 
 ## What You Get
 - A server-rendered Django dashboard at `/`
+- A predictions page at `/predictions/` with heuristic next-season picks
 - Local SQLite cache for seasons, races, and winners
 - A one-click refresh flow (`POST /refresh`) and a CLI refresh command
 - Trend charts for constructor and driver wins by season
@@ -44,7 +45,8 @@ Alternative (UI):
 3. Click **Refresh Data**
 
 ### 4) Explore the dashboard
-After refresh, `/` shows:
+After refresh:
+- `/` shows:
 - Top summary cards:
   - Seasons in DB
   - Races in DB
@@ -55,6 +57,11 @@ After refresh, `/` shows:
   - `Driver Wins by Season` (top 5 overall drivers)
   - `Top Constructors - Total Wins` (top 10)
 - Last refresh timestamp
+- `/predictions/` shows:
+  - Predicted driver and constructor champion picks
+  - Confidence labels (heuristic)
+  - Top 10 ranked tables with 5-season win breakdown
+  - Score bar charts for drivers and constructors
 
 ### 5) Refresh data again
 Run either:
@@ -76,6 +83,7 @@ Refresh is idempotent: re-running the same range updates existing rows and does 
   - `templates/dashboard/`: Tailwind + Chart.js templates
   - `services/jolpica.py`: Jolpica API client (requests, retries, parsing, throttling)
   - `services/refresh.py`: refresh orchestration + upsert logic + range parsing
+  - `services/predictions.py`: deterministic heuristic scoring for `/predictions/`
   - `management/commands/refresh_f1.py`: CLI refresh command
   - `tests/`: unit/integration tests for models, services, views, and command behavior
 
@@ -89,6 +97,7 @@ Test suite covers:
 - Jolpica API parsing with mocked HTTP responses
 - Refresh service upserts and idempotency (`refresh twice = same counts`)
 - View behavior for `GET /` and `POST /refresh` with messages
+- Predictions scoring and `GET /predictions/` behavior
 - Command error/success handling
 
 ## Troubleshooting
@@ -117,4 +126,3 @@ Test suite covers:
 - Refresh is synchronous (MVP scope): progress is logged to terminal/server logs.
 - Data parsing is defensive; missing fields or empty API payloads are handled gracefully.
 - No auth/deployment/background workers in this MVP.
-

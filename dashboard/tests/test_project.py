@@ -4,7 +4,7 @@ from django.test import SimpleTestCase
 from django.urls import resolve, reverse
 
 from dashboard.models import Constructor, Driver, Race, Season, Winner
-from dashboard.views import index, refresh_data
+from dashboard.views import index, predictions, refresh_data
 
 
 class ProjectWiringTests(SimpleTestCase):
@@ -15,6 +15,7 @@ class ProjectWiringTests(SimpleTestCase):
     def test_urls_resolve_to_expected_views(self) -> None:
         self.assertEqual(resolve(reverse("dashboard:index")).func, index)
         self.assertEqual(resolve(reverse("dashboard:refresh")).func, refresh_data)
+        self.assertEqual(resolve(reverse("dashboard:predictions")).func, predictions)
         self.assertEqual(resolve("/admin/").route, "admin/")
 
     def test_admin_models_are_registered(self) -> None:

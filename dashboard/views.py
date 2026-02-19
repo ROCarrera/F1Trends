@@ -11,6 +11,12 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from dashboard.models import Constructor, Driver, Race, Season, Winner
+from dashboard.services.predictions import (
+    compute_confidence,
+    compute_constructor_scores,
+    compute_driver_scores,
+    get_recent_seasons,
+)
 from dashboard.services.refresh import refresh_f1_data
 
 logger = logging.getLogger(__name__)
@@ -54,6 +60,93 @@ def refresh_data(request: HttpRequest) -> HttpResponse:
                 f"Refresh completed with {len(summary.errors)} warnings. Check server logs for details.",
             )
     return redirect("dashboard:index")
+
+
+@require_GET
+def predictions(request: HttpRequest) -> HttpResponse:
+    seasons_used = get_recent_seasons(n=5)
+    if not seasons_used:
+        return render(
+            request,
+            "dashboard/predictions.html",
+            {
+                "is_empty": True,
+                "seasons_used": [],
+                "seasons_range_label": "No seasons available",
+                "driver_rows": [],
+                "constructor_rows": [],
+                "predicted_driver": None,
+                "predicted_constructor": None,
+                "driver_confidence": {"value": 0.0, "label": "Low"},
+                "constructor_confidence": {"value": 0.0, "label": "Low"},
+                "driver_score_chart": {"labels": [], "datasets": []},
+                "constructor_score_chart": {"labels": [], "datasets": []},
+            },
+        )
+
+    driver_rows = compute_driver_scores(seasons_used)[:10]
+    constructor_rows = compute_constructor_scores(seasons_used)[:10]
+
+    predicted_driver = driver_rows[0] if driver_rows else None
+    predicted_constructor = constructor_rows[0] if constructor_rows else None
+
+    driver_top_score = predicted_driver["score"] if predicted_driver else 0.0
+    driver_second_score = driver_rows[1]["score"] if len(driver_rows) > 1 else 0.0
+    constructor_top_score = predicted_constructor["score"] if predicted_constructor else 0.0
+    constructor_second_score = (
+        constructor_rows[1]["score"] if len(constructor_rows) > 1 else 0.0
+    )
+
+    driver_confidence_value, driver_confidence_label = compute_confidence(
+        driver_top_score, driver_second_score
+    )
+    constructor_confidence_value, constructor_confidence_label = compute_confidence(
+        constructor_top_score, constructor_second_score
+    )
+
+    driver_score_chart = {
+        "labels": [row["name"] for row in driver_rows],
+        "datasets": [
+            {
+                "label": "Driver Score",
+                "data": [row["score"] for row in driver_rows],
+                "backgroundColor": "#2563EB",
+                "borderRadius": 8,
+            }
+        ],
+    }
+    constructor_score_chart = {
+        "labels": [row["name"] for row in constructor_rows],
+        "datasets": [
+            {
+                "label": "Constructor Score",
+                "data": [row["score"] for row in constructor_rows],
+                "backgroundColor": "#0F766E",
+                "borderRadius": 8,
+            }
+        ],
+    }
+
+    context = {
+        "is_empty": False,
+        "seasons_used": seasons_used,
+        "seasons_range_label": f"{seasons_used[0]}-{seasons_used[-1]}",
+        "driver_rows": driver_rows,
+        "constructor_rows": constructor_rows,
+        "predicted_driver": predicted_driver,
+        "predicted_constructor": predicted_constructor,
+        "driver_confidence": {
+            "value": driver_confidence_value,
+            "label": driver_confidence_label,
+        },
+        "constructor_confidence": {
+            "value": constructor_confidence_value,
+            "label": constructor_confidence_label,
+        },
+        "driver_score_chart": driver_score_chart,
+        "constructor_score_chart": constructor_score_chart,
+    }
+    return render(request, "dashboard/predictions.html", context)
 
 
 def _constructor_wins_by_season(seasons: list[int]) -> dict[str, Any]:
