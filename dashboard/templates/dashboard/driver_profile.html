@@ -1,0 +1,85 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ driver.given_name }} {{ driver.family_name }} | Driver Profile{% endblock %}
+
+{% block content %}
+    <section class="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Driver Profile</p>
+        <h1 class="mt-2 text-3xl font-semibold text-slate-900">{{ driver.given_name }} {{ driver.family_name }}</h1>
+        <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs uppercase tracking-wide text-slate-500">Total Wins</p>
+                <p class="mt-1 text-2xl font-semibold text-slate-900">{{ total_wins }}</p>
+            </article>
+            <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs uppercase tracking-wide text-slate-500">Wins in {{ current_year }}</p>
+                <p class="mt-1 text-2xl font-semibold text-slate-900">{{ wins_2026 }}</p>
+            </article>
+            <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs uppercase tracking-wide text-slate-500">Seasons in Chart</p>
+                <p class="mt-1 text-2xl font-semibold text-slate-900">{{ seasons|length }}</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="text-lg font-semibold text-slate-900">Wins by Season</h2>
+        <p class="mb-4 text-sm text-slate-600">All seasons with winner data in local cache.</p>
+        <div class="h-80">
+            <canvas id="driverWinsBySeasonChart"></canvas>
+        </div>
+    </section>
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="text-lg font-semibold text-slate-900">Recent Wins</h2>
+        <p class="mb-4 text-sm text-slate-600">Most recent race wins (up to 10).</p>
+        {% if recent_wins %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                            <th class="px-2 py-2">Season</th>
+                            <th class="px-2 py-2">Round</th>
+                            <th class="px-2 py-2">Race</th>
+                            <th class="px-2 py-2">Constructor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for win in recent_wins %}
+                            <tr class="border-b border-slate-100">
+                                <td class="px-2 py-2 text-slate-700">{{ win.race__season__year }}</td>
+                                <td class="px-2 py-2 text-slate-700">{{ win.race__round }}</td>
+                                <td class="px-2 py-2 text-slate-800">{{ win.race__race_name }}</td>
+                                <td class="px-2 py-2 text-slate-700">{{ win.constructor__name }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-sm text-slate-600">No wins found for this driver in cached data.</p>
+        {% endif %}
+    </section>
+
+    {{ chart_data|json_script:"driver-profile-chart-data" }}
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        const driverChartData = JSON.parse(document.getElementById("driver-profile-chart-data").textContent);
+        const driverCanvas = document.getElementById("driverWinsBySeasonChart");
+        if (driverCanvas && driverChartData.labels.length > 0) {
+            new Chart(driverCanvas, {
+                type: "line",
+                data: driverChartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: "bottom" } },
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
+        }
+    </script>
+{% endblock %}
+

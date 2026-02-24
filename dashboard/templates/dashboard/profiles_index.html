@@ -1,0 +1,61 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Profiles | F1 Trends{% endblock %}
+
+{% block content %}
+    <section class="mb-8 space-y-3">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Current Season</p>
+        <h1 class="text-4xl font-semibold text-slate-900">Profiles</h1>
+        <p class="max-w-3xl text-slate-600">Drivers and constructors derived from cached {{ current_year }} winner data.</p>
+        <p class="text-sm text-slate-500">This MVP lists entities present in cached winner data; to include all participants, store full results later.</p>
+    </section>
+
+    {% if not has_current_data %}
+        <section class="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+            <h2 class="text-lg font-semibold text-slate-900">No {{ current_year }} data cached yet. Refresh seasons including {{ current_year }}.</h2>
+            <p class="mt-2 text-sm text-slate-600">Use the dashboard refresh flow to pull seasons that include the current year.</p>
+            <a
+                href="{% url 'dashboard:index' %}"
+                class="mt-5 inline-flex items-center rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-800"
+            >
+                Go to Dashboard
+            </a>
+        </section>
+    {% else %}
+        <section class="grid gap-6 lg:grid-cols-2">
+            <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 class="text-lg font-semibold text-slate-900">{{ current_year }} Drivers (from cached results)</h2>
+                <ul class="mt-4 space-y-2">
+                    {% for driver in drivers %}
+                        <li>
+                            <a
+                                href="{% url 'dashboard:driver_profile' driver.driver_id %}"
+                                class="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                            >
+                                <span>{{ driver.given_name }} {{ driver.family_name }}</span>
+                                <span class="text-xs text-slate-500">View profile</span>
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </article>
+            <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 class="text-lg font-semibold text-slate-900">{{ current_year }} Constructors (from cached results)</h2>
+                <ul class="mt-4 space-y-2">
+                    {% for constructor in constructors %}
+                        <li>
+                            <a
+                                href="{% url 'dashboard:constructor_profile' constructor.constructor_id %}"
+                                class="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                            >
+                                <span>{{ constructor.name }}</span>
+                                <span class="text-xs text-slate-500">View profile</span>
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </article>
+        </section>
+    {% endif %}
+{% endblock %}
+

@@ -46,6 +46,18 @@ Core behavior:
 3. Service computes deterministic heuristic scores from cached `Winner` data only
 4. View renders ranked tables, champion picks, confidence labels, and score charts
 
+### Flow E: Legends page
+1. User requests `GET /legends/` with optional `?era=...`
+2. `dashboard.views.legends` parses era and aggregates winners from DB only
+3. `dashboard.services.legends` computes top drivers/constructors + peak seasons
+4. View renders Hall of Fame tables and one compact chart
+
+### Flow F: Profiles pages
+1. User requests `GET /profiles/` for current season index (2026)
+2. `dashboard.services.profiles` derives entities from cached winner rows in 2026
+3. User opens `/profiles/drivers/<driver_id>/` or `/profiles/constructors/<constructor_id>/`
+4. View renders total wins, 2026 wins, wins-by-season chart, and recent wins
+
 ## Directory and File Map
 ### Project root
 - `manage.py`: Django entrypoint
@@ -69,14 +81,20 @@ Core behavior:
   - `index` (`GET /`)
   - `refresh_data` (`POST /refresh`)
   - `predictions` (`GET /predictions/`)
+  - `legends` (`GET /legends/`)
+  - `profiles_index` (`GET /profiles/`)
+  - `driver_profile` (`GET /profiles/drivers/<driver_id>/`)
+  - `constructor_profile` (`GET /profiles/constructors/<constructor_id>/`)
   - chart aggregation helpers
 - `urls.py`: app URL patterns
 - `admin.py`: admin registrations
 - `services/jolpica.py`: API client + parsing + retry/throttle
 - `services/refresh.py`: orchestration, range parsing, upsert logic, summary object
 - `services/predictions.py`: heuristic scoring + confidence calculation for predictions UI
+- `services/legends.py`: Hall of Fame aggregations + era filters
+- `services/profiles.py`: current season listings and profile summaries
 - `management/commands/refresh_f1.py`: management command wrapper
-- `templates/dashboard/`: HTML templates (`base.html`, `index.html`, `predictions.html`)
+- `templates/dashboard/`: HTML templates (`base.html`, `index.html`, `predictions.html`, `legends.html`, `profiles_index.html`, `driver_profile.html`, `constructor_profile.html`)
 - `tests/`: Django tests for models, services, views, command, wiring
 
 ## Data Model Notes
@@ -96,6 +114,21 @@ Core behavior:
 - Confidence heuristic:
   - `(top_score - second_score) / max(top_score, 1e-6)`
   - labels: `Low`, `Medium`, `High`
+
+## Legends Model Notes
+- Optional era filtering via query param:
+  - `all`, `1950-1979`, `1980-1999`, `2000-2013`, `2014-2021`, `2022-2026`
+- Rankings are grouped from `Winner` rows only.
+- Each legend row includes:
+  - total wins
+  - peak season (year + wins)
+  - active years range in cached data
+
+## Profiles Model Notes
+- Current season is intentionally pinned to 2026 for this MVP.
+- `/profiles/` lists entities derived from winner rows in 2026.
+- Limitation:
+  - this is not a full roster view; non-winning participants are missing until full race results are stored.
 
 ## API Integration Notes
 - Endpoint usage:
@@ -125,6 +158,8 @@ Current test areas:
 - Refresh service upserts + range validation
 - View behavior (`GET /`, `POST /refresh`, message behavior)
 - Predictions service scoring logic and predictions page behavior
+- Legends service logic (ordering, era filtering, peak seasons) and legends page behavior
+- Profiles index + entity profile views (including 404s)
 - Management command success/failure handling
 - Basic project wiring (URLs/admin/app config)
 
