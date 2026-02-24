@@ -6,16 +6,30 @@ from typing import Any
 
 from django.contrib import messages
 from django.db.models import Count, Max
-from django.http import HttpRequest, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from dashboard.models import Constructor, Driver, Race, Season, Winner
+from dashboard.services.legends import (
+    ERA_CHOICES,
+    get_season_queryset_by_era,
+    parse_era,
+    top_constructors,
+    top_drivers,
+)
 from dashboard.services.predictions import (
     compute_confidence,
     compute_constructor_scores,
     compute_driver_scores,
     get_recent_seasons,
+)
+from dashboard.services.profiles import (
+    constructor_summary,
+    driver_summary,
+    get_current_season_year,
+    list_2026_constructors,
+    list_2026_drivers,
 )
 from dashboard.services.refresh import refresh_f1_data
 
@@ -147,6 +161,82 @@ def predictions(request: HttpRequest) -> HttpResponse:
         "constructor_score_chart": constructor_score_chart,
     }
     return render(request, "dashboard/predictions.html", context)
+
+
+@require_GET
+def legends(request: HttpRequest) -> HttpResponse:
+    selected_era = request.GET.get("era", "all")
+    start_year, end_year, era_label = parse_era(selected_era)
+    seasons_used = list(
+        get_season_queryset_by_era(start=start_year, end=end_year).values_list("year", flat=True)
+    )
+    has_any_winners = Winner.objects.exists()
+    driver_rows = top_drivers(limit=5, start=start_year, end=end_year)
+    constructor_rows = top_constructors(limit=5, start=start_year, end=end_year)
+    chart_rows = top_drivers(limit=10, start=start_year, end=end_year)
+    filtered_empty = has_any_winners and (not seasons_used or not (driver_rows or constructor_rows))
+
+    seasons_range_label = (
+        f"{seasons_used[0]}-{seasons_used[-1]}" if seasons_used else f"{era_label} (no data)"
+    )
+    chart_data = {
+        "labels": [row["name"] for row in chart_rows],
+        "datasets": [
+            {
+                "label": "Driver Wins",
+                "data": [row["total_wins"] for row in chart_rows],
+                "backgroundColor": "#2563EB",
+                "borderRadius": 8,
+            }
+        ],
+    }
+
+    context = {
+        "selected_era": selected_era if selected_era in {item[0] for item in ERA_CHOICES} else "all",
+        "era_options": [{"value": value, "label": label} for value, label in ERA_CHOICES],
+        "era_label": era_label,
+        "seasons_used": seasons_used,
+        "seasons_range_label": seasons_range_label,
+        "driver_rows": driver_rows,
+        "constructor_rows": constructor_rows,
+        "chart_data": chart_data,
+        "is_empty": not has_any_winners,
+        "is_filtered_empty": filtered_empty,
+    }
+    return render(request, "dashboard/legends.html", context)
+
+
+@require_GET
+def profiles_index(request: HttpRequest) -> HttpResponse:
+    current_year = get_current_season_year()
+    drivers = list_2026_drivers()
+    constructors = list_2026_constructors()
+
+    context = {
+        "current_year": current_year,
+        "drivers": drivers,
+        "constructors": constructors,
+        "has_current_data": bool(drivers or constructors),
+    }
+    return render(request, "dashboard/profiles_index.html", context)
+
+
+@require_GET
+def driver_profile(request: HttpRequest, driver_id: str) -> HttpResponse:
+    try:
+        summary = driver_summary(driver_id)
+    except Driver.DoesNotExist as exc:
+        raise Http404("Driver not found") from exc
+    return render(request, "dashboard/driver_profile.html", summary)
+
+
+@require_GET
+def constructor_profile(request: HttpRequest, constructor_id: str) -> HttpResponse:
+    try:
+        summary = constructor_summary(constructor_id)
+    except Constructor.DoesNotExist as exc:
+        raise Http404("Constructor not found") from exc
+    return render(request, "dashboard/constructor_profile.html", summary)
 
 
 def _constructor_wins_by_season(seasons: list[int]) -> dict[str, Any]:

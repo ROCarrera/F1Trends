@@ -29,32 +29,58 @@
     <main class="mx-auto min-h-screen max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
         <header class="mb-6 flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <a href="{% url 'dashboard:index' %}" class="text-sm font-semibold tracking-wide text-slate-800">F1 Trends</a>
-            <nav class="flex items-center gap-2 text-sm">
-                <a
-                    href="{% url 'dashboard:index' %}"
-                    class="rounded-lg px-3 py-1.5 transition
-                        {% if request.resolver_match.url_name == 'index' %}
-                            bg-slate-900 text-white
-                        {% else %}
-                            text-slate-600 hover:bg-slate-100 hover:text-slate-900
-                        {% endif %}
-                    "
-                >
-                    Dashboard
-                </a>
-                <a
-                    href="{% url 'dashboard:predictions' %}"
-                    class="rounded-lg px-3 py-1.5 transition
-                        {% if request.resolver_match.url_name == 'predictions' %}
-                            bg-slate-900 text-white
-                        {% else %}
-                            text-slate-600 hover:bg-slate-100 hover:text-slate-900
-                        {% endif %}
-                    "
-                >
-                    Predictions
-                </a>
-            </nav>
+            {% with current=request.resolver_match.url_name %}
+                <nav class="flex flex-wrap items-center gap-2 text-sm">
+                    <a
+                        href="{% url 'dashboard:index' %}"
+                        class="rounded-lg px-3 py-1.5 transition
+                            {% if current == 'index' %}
+                                bg-slate-900 text-white
+                            {% else %}
+                                text-slate-600 hover:bg-slate-100 hover:text-slate-900
+                            {% endif %}
+                        "
+                    >
+                        Dashboard
+                    </a>
+                    <a
+                        href="{% url 'dashboard:predictions' %}"
+                        class="rounded-lg px-3 py-1.5 transition
+                            {% if current == 'predictions' %}
+                                bg-slate-900 text-white
+                            {% else %}
+                                text-slate-600 hover:bg-slate-100 hover:text-slate-900
+                            {% endif %}
+                        "
+                    >
+                        Predictions
+                    </a>
+                    <a
+                        href="{% url 'dashboard:legends' %}"
+                        class="rounded-lg px-3 py-1.5 transition
+                            {% if current == 'legends' %}
+                                bg-slate-900 text-white
+                            {% else %}
+                                text-slate-600 hover:bg-slate-100 hover:text-slate-900
+                            {% endif %}
+                        "
+                    >
+                        Legends
+                    </a>
+                    <a
+                        href="{% url 'dashboard:profiles_index' %}"
+                        class="rounded-lg px-3 py-1.5 transition
+                            {% if current == 'profiles_index' or current == 'driver_profile' or current == 'constructor_profile' %}
+                                bg-slate-900 text-white
+                            {% else %}
+                                text-slate-600 hover:bg-slate-100 hover:text-slate-900
+                            {% endif %}
+                        "
+                    >
+                        Profiles
+                    </a>
+                </nav>
+            {% endwith %}
         </header>
         {% if messages %}
             <div class="mb-6 space-y-2">

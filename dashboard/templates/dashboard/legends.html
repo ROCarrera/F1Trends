@@ -1,0 +1,144 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Legends | F1 Trends{% endblock %}
+
+{% block content %}
+    <section class="mb-8 space-y-3">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Hall of Fame</p>
+        <h1 class="text-4xl font-semibold text-slate-900">Legends</h1>
+        <p class="max-w-3xl text-slate-600">All-time winning leaders from locally cached race winner data.</p>
+        <p class="text-sm text-slate-500">Seasons used: <span class="font-medium text-slate-700">{{ seasons_range_label }}</span></p>
+    </section>
+
+    <section class="mb-6 flex flex-wrap gap-2">
+        {% for option in era_options %}
+            <a
+                href="{% url 'dashboard:legends' %}?era={{ option.value }}"
+                class="rounded-full border px-3 py-1.5 text-xs font-semibold transition
+                    {% if selected_era == option.value %}
+                        border-slate-900 bg-slate-900 text-white
+                    {% else %}
+                        border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:text-slate-900
+                    {% endif %}
+                "
+            >
+                {{ option.label }}
+            </a>
+        {% endfor %}
+    </section>
+
+    {% if is_empty %}
+        <section class="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+            <h2 class="text-lg font-semibold text-slate-900">No cached data yet. Refresh data first.</h2>
+            <p class="mt-2 text-sm text-slate-600">Run a refresh so we can compute the Hall of Fame rankings.</p>
+            <a
+                href="{% url 'dashboard:index' %}"
+                class="mt-5 inline-flex items-center rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-800"
+            >
+                Go to Dashboard
+            </a>
+        </section>
+    {% elif is_filtered_empty %}
+        <section class="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+            <h2 class="text-lg font-semibold text-slate-900">No winner data for this era</h2>
+            <p class="mt-2 text-sm text-slate-600">Try a different era filter or refresh additional seasons.</p>
+        </section>
+    {% else %}
+        <section class="grid gap-6 lg:grid-cols-2">
+            <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 class="text-lg font-semibold text-slate-900">Top 5 Drivers</h2>
+                <p class="mb-4 text-sm text-slate-600">Ranked by total wins in selected era.</p>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                                <th class="px-2 py-2">#</th>
+                                <th class="px-2 py-2">Driver</th>
+                                <th class="px-2 py-2">Wins</th>
+                                <th class="px-2 py-2">Peak Season</th>
+                                <th class="px-2 py-2">Active Years</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in driver_rows %}
+                                <tr class="border-b border-slate-100">
+                                    <td class="px-2 py-2 font-semibold text-slate-700">{{ row.rank }}</td>
+                                    <td class="px-2 py-2 font-medium text-slate-800">{{ row.name }}</td>
+                                    <td class="px-2 py-2 text-slate-700">{{ row.total_wins }}</td>
+                                    <td class="px-2 py-2 text-slate-700">{{ row.peak_season_year }} ({{ row.peak_season_wins }})</td>
+                                    <td class="px-2 py-2 text-slate-700">{{ row.active_years_label }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+
+            <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 class="text-lg font-semibold text-slate-900">Top 5 Constructors</h2>
+                <p class="mb-4 text-sm text-slate-600">Ranked by total wins in selected era.</p>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                                <th class="px-2 py-2">#</th>
+                                <th class="px-2 py-2">Constructor</th>
+                                <th class="px-2 py-2">Wins</th>
+                                <th class="px-2 py-2">Peak Season</th>
+                                <th class="px-2 py-2">Active Years</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in constructor_rows %}
+                                <tr class="border-b border-slate-100">
+                                    <td class="px-2 py-2 font-semibold text-slate-700">{{ row.rank }}</td>
+                                    <td class="px-2 py-2 font-medium text-slate-800">{{ row.name }}</td>
+                                    <td class="px-2 py-2 text-slate-700">{{ row.total_wins }}</td>
+                                    <td class="px-2 py-2 text-slate-700">{{ row.peak_season_year }} ({{ row.peak_season_wins }})</td>
+                                    <td class="px-2 py-2 text-slate-700">{{ row.active_years_label }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </section>
+
+        <section class="mt-6">
+            <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 class="text-lg font-semibold text-slate-900">Top 10 Driver Wins</h2>
+                <p class="mb-4 text-sm text-slate-600">Selected era: {{ era_label }}</p>
+                <div class="h-80">
+                    <canvas id="legendsChart"></canvas>
+                </div>
+            </article>
+        </section>
+
+        {{ chart_data|json_script:"legends-chart-data" }}
+    {% endif %}
+{% endblock %}
+
+{% block scripts %}
+    {% if not is_empty and not is_filtered_empty %}
+        <script>
+            const legendsChartData = JSON.parse(document.getElementById("legends-chart-data").textContent);
+            const legendsCanvas = document.getElementById("legendsChart");
+            if (legendsCanvas && legendsChartData.labels.length > 0) {
+                new Chart(legendsCanvas, {
+                    type: "bar",
+                    data: legendsChartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { ticks: { maxRotation: 40, minRotation: 20 } },
+                            y: { beginAtZero: true, ticks: { precision: 0 } }
+                        }
+                    }
+                });
+            }
+        </script>
+    {% endif %}
+{% endblock %}
+
