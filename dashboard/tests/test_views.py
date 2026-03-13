@@ -110,6 +110,8 @@ class DashboardViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "dashboard/index.html")
         self.assertContains(response, "F1 Trends")
+        self.assertContains(response, "Refresh Options")
+        self.assertContains(response, "Include latest season")
         self.assertEqual(response.context["stats"]["seasons"], 3)
         self.assertEqual(response.context["stats"]["races"], 6)
         self.assertEqual(response.context["stats"]["constructors"], 3)
@@ -179,22 +181,46 @@ class DashboardViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         messages = [str(msg) for msg in get_messages(response.wsgi_request)]
+        self.assertTrue(any("Refreshed seasons 2024-2024." in msg for msg in messages))
         self.assertTrue(any(summary.short_message() in msg for msg in messages))
         kwargs = refresh_mock.call_args.kwargs
         self.assertIsNone(kwargs["seasons_range"])
+        self.assertFalse(kwargs["include_latest"])
         self.assertTrue(callable(kwargs["log"]))
 
     @patch("dashboard.views.refresh_f1_data")
-    def test_refresh_view_passes_seasons_range(self, refresh_mock) -> None:
+    def test_refresh_view_passes_explicit_range(self, refresh_mock) -> None:
         refresh_mock.return_value = RefreshSummary(
             target_start=2020,
             target_end=2021,
             latest_available=2026,
         )
 
-        self.client.post(reverse("dashboard:refresh"), {"seasons": "2020:2021"}, follow=True)
+        self.client.post(
+            reverse("dashboard:refresh"),
+            {"start_year": "2020", "end_year": "2021"},
+            follow=True,
+        )
 
         self.assertEqual(refresh_mock.call_args.kwargs["seasons_range"], "2020:2021")
+        self.assertFalse(refresh_mock.call_args.kwargs["include_latest"])
+
+    @patch("dashboard.views.refresh_f1_data")
+    def test_refresh_view_passes_include_latest(self, refresh_mock) -> None:
+        refresh_mock.return_value = RefreshSummary(
+            target_start=2020,
+            target_end=2026,
+            latest_available=2026,
+        )
+
+        self.client.post(
+            reverse("dashboard:refresh"),
+            {"start_year": "2020", "include_latest": "on"},
+            follow=True,
+        )
+
+        self.assertEqual(refresh_mock.call_args.kwargs["seasons_range"], "2020:2020")
+        self.assertTrue(refresh_mock.call_args.kwargs["include_latest"])
 
     @patch("dashboard.views.refresh_f1_data")
     def test_refresh_view_warning_message_for_errors(self, refresh_mock) -> None:

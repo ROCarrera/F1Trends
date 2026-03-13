@@ -8,6 +8,7 @@ from dashboard.services.jolpica import JolpicaAPIError, RacePayload, WinnerPaylo
 from dashboard.services.refresh import (
     DEFAULT_START_SEASON,
     RefreshSummary,
+    detect_latest_available_season_year,
     parse_season_range,
     refresh_f1_data,
 )
@@ -30,6 +31,37 @@ class ParseSeasonRangeTests(TestCase):
     def test_invalid_order_raises(self) -> None:
         with self.assertRaises(ValueError):
             parse_season_range("2025:2024", latest_available=2026)
+
+
+class LatestSeasonDetectionTests(TestCase):
+    def test_detect_latest_prefers_cached_db(self) -> None:
+        Season.objects.create(year=2025)
+        client = Mock()
+        client.fetch_seasons.return_value = [2024, 2025, 2026]
+
+        latest = detect_latest_available_season_year(client=client)
+
+        self.assertEqual(latest, 2025)
+        client.fetch_seasons.assert_not_called()
+
+    def test_detect_latest_uses_jolpica_when_db_empty(self) -> None:
+        client = Mock()
+        client.fetch_seasons.return_value = [2024, 2025, 2026]
+
+        latest = detect_latest_available_season_year(client=client)
+
+        self.assertEqual(latest, 2026)
+        client.fetch_seasons.assert_called_once()
+
+    def test_detect_latest_include_remote_can_extend_cached_latest(self) -> None:
+        Season.objects.create(year=2025)
+        client = Mock()
+        client.fetch_seasons.return_value = [2024, 2025, 2026]
+
+        latest = detect_latest_available_season_year(client=client, include_remote=True)
+
+        self.assertEqual(latest, 2026)
+        client.fetch_seasons.assert_called_once()
 
 
 class RefreshServiceTests(TestCase):
@@ -151,6 +183,24 @@ class RefreshServiceTests(TestCase):
         self.assertEqual(summary.errors, [])
         self.assertEqual(Race.objects.count(), 1)
         self.assertEqual(Winner.objects.count(), 0)
+
+    @patch("dashboard.services.refresh.JolpicaClient")
+    def test_refresh_include_latest_extends_target_end(self, client_cls: Mock) -> None:
+        Season.objects.create(year=2025)
+        client = client_cls.return_value
+        client.fetch_seasons.return_value = [2024, 2025, 2026]
+        client.fetch_races_for_season.return_value = []
+
+        summary = refresh_f1_data(seasons_range="2025:2025", include_latest=True)
+
+        self.assertEqual(summary.target_start, 2025)
+        self.assertEqual(summary.target_end, 2026)
+        self.assertEqual(summary.seasons_requested, 2)
+        self.assertEqual(summary.seasons_processed, 2)
+        self.assertEqual(
+            [call.args[0] for call in client.fetch_races_for_season.call_args_list],
+            [2025, 2026],
+        )
 
     def test_refresh_summary_short_message(self) -> None:
         summary = RefreshSummary(

@@ -29,10 +29,14 @@ Core behavior:
 5. Command prints summary + warnings/errors
 
 ### Flow B: UI refresh
-1. User clicks `Refresh Data` button in `/`
-2. `POST /refresh` triggers `dashboard.views.refresh_data`
-3. View calls `refresh_f1_data(...)`
-4. View redirects to `/` and surfaces success/error via Django messages
+1. User configures `Refresh Options` in `/`:
+   - `start_year` (optional)
+   - `end_year` (optional)
+   - `include_latest` checkbox
+2. User clicks `Refresh Data`
+3. `POST /refresh` triggers `dashboard.views.refresh_data`
+4. View resolves `seasons_range` from form fields and calls `refresh_f1_data(...)`
+5. View redirects to `/` and surfaces success/error via Django messages
 
 ### Flow C: Dashboard load
 1. User requests `GET /`
@@ -89,7 +93,7 @@ Core behavior:
 - `urls.py`: app URL patterns
 - `admin.py`: admin registrations
 - `services/jolpica.py`: API client + parsing + retry/throttle
-- `services/refresh.py`: orchestration, range parsing, upsert logic, summary object
+- `services/refresh.py`: orchestration, latest-season detection, range parsing, upsert logic, summary object
 - `services/predictions.py`: heuristic scoring + confidence calculation for predictions UI
 - `services/legends.py`: Hall of Fame aggregations + era filters
 - `services/profiles.py`: current season listings and profile summaries
@@ -101,6 +105,16 @@ Core behavior:
 - `Race` uniqueness is enforced by DB constraint (`season`, `round`).
 - `Winner` is one-per-race using `OneToOneField`.
 - Refresh logic is idempotent by design (`update_or_create` across entities).
+
+## Refresh Options Notes
+- `refresh_f1_data` supports:
+  - explicit `seasons_range` (`START:END`)
+  - `include_latest=True` to resolve end year to latest detected season
+- Latest season detection:
+  - prefers cached DB season max when available
+  - when `include_latest=True`, probes Jolpica seasons and takes the newest available year
+  - falls back to DB cache when Jolpica seasons are unavailable
+- Success messaging for UI refresh includes resolved range (`Refreshed seasons START-END`)
 
 ## Predictions Model Notes
 - Uses only locally cached DB data (`Winner` + related season fields).
@@ -181,7 +195,7 @@ Current test areas:
 ### Extend refresh fields
 1. Update model + migration
 2. Parse fields in `services/jolpica.py`
-3. Persist in `services/refresh.py` upsert path
+3. Persist/update orchestration in `services/refresh.py` upsert path
 4. Add/adjust tests for parsing + persistence
 
 ### Debug refresh failures

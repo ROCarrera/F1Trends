@@ -56,10 +56,24 @@ def index(request: HttpRequest) -> HttpResponse:
 
 @require_POST
 def refresh_data(request: HttpRequest) -> HttpResponse:
+    include_latest = bool(request.POST.get("include_latest"))
+    raw_start_year = request.POST.get("start_year")
+    raw_end_year = request.POST.get("end_year")
     seasons_range = request.POST.get("seasons") or None
+
+    try:
+        if seasons_range is None:
+            start_year = _parse_optional_year(raw_start_year, field_name="Start year")
+            end_year = _parse_optional_year(raw_end_year, field_name="End year")
+            seasons_range = _build_seasons_range(start_year=start_year, end_year=end_year)
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect("dashboard:index")
+
     try:
         summary = refresh_f1_data(
             seasons_range=seasons_range,
+            include_latest=include_latest,
             log=lambda message: logger.info("[refresh] %s", message),
         )
     except ValueError as exc:
@@ -67,7 +81,10 @@ def refresh_data(request: HttpRequest) -> HttpResponse:
     except Exception as exc:
         messages.error(request, f"Refresh failed: {exc}")
     else:
-        messages.success(request, summary.short_message())
+        messages.success(
+            request,
+            f"Refreshed seasons {summary.target_start}-{summary.target_end}. {summary.short_message()}",
+        )
         if summary.errors:
             messages.warning(
                 request,
@@ -321,6 +338,26 @@ def _top_constructor_totals() -> dict[str, Any]:
             }
         ],
     }
+
+
+def _parse_optional_year(raw_value: str | None, *, field_name: str) -> int | None:
+    if raw_value is None:
+        return None
+    value = raw_value.strip()
+    if not value:
+        return None
+    if not value.isdigit() or len(value) != 4:
+        raise ValueError(f"{field_name} must be a 4-digit year.")
+    return int(value)
+
+
+def _build_seasons_range(*, start_year: int | None, end_year: int | None) -> str | None:
+    if start_year is None and end_year is None:
+        return None
+    if start_year is None:
+        raise ValueError("Start year is required when end year is provided.")
+    resolved_end = end_year if end_year is not None else start_year
+    return f"{start_year}:{resolved_end}"
 
 
 def _color(index: int, *, alpha: float = 1.0) -> str:

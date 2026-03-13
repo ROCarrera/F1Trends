@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from django.db import transaction
+from django.db.models import Max
 
 from dashboard.models import Constructor, Driver, Race, Season, Winner
 from dashboard.services.jolpica import JolpicaAPIError, JolpicaClient, RacePayload
@@ -47,16 +48,67 @@ def parse_season_range(raw_range: str | None, latest_available: int) -> tuple[in
     return start, end
 
 
-def refresh_f1_data(*, seasons_range: str | None = None, log: LogFn | None = None) -> RefreshSummary:
-    logger = log or (lambda _: None)
-    client = JolpicaClient()
-    available_seasons = client.fetch_seasons()
-    if not available_seasons:
+def detect_latest_available_season_year(
+    *,
+    client: JolpicaClient,
+    include_remote: bool = False,
+) -> int:
+    latest_cached = Season.objects.aggregate(latest_year=Max("year"))["latest_year"]
+    if latest_cached is not None and not include_remote:
+        return int(latest_cached)
+
+    try:
+        remote_seasons = client.fetch_seasons()
+    except JolpicaAPIError:
+        if latest_cached is not None:
+            return int(latest_cached)
+        raise
+
+    if not remote_seasons:
+        if latest_cached is not None:
+            return int(latest_cached)
         raise ValueError("No seasons returned by Jolpica API.")
 
-    latest_available = max(available_seasons)
-    target_start, target_end = parse_season_range(seasons_range, latest_available)
-    available_set = set(available_seasons)
+    latest_remote = max(remote_seasons)
+    if latest_cached is None:
+        return latest_remote
+    return max(int(latest_cached), latest_remote)
+
+
+def _available_seasons_set(*, client: JolpicaClient) -> set[int]:
+    cached = set(Season.objects.values_list("year", flat=True))
+    try:
+        remote = set(client.fetch_seasons())
+    except JolpicaAPIError:
+        if cached:
+            return cached
+        raise
+
+    if remote:
+        return cached | remote
+    if cached:
+        return cached
+    raise ValueError("No seasons returned by Jolpica API.")
+
+
+def refresh_f1_data(
+    *,
+    seasons_range: str | None = None,
+    include_latest: bool = False,
+    log: LogFn | None = None,
+) -> RefreshSummary:
+    logger = log or (lambda _: None)
+    client = JolpicaClient()
+    latest_available = detect_latest_available_season_year(
+        client=client,
+        include_remote=include_latest,
+    )
+    target_start, parsed_target_end = parse_season_range(seasons_range, latest_available)
+    target_end = latest_available if include_latest else parsed_target_end
+    if target_start > target_end:
+        raise ValueError("Invalid selected years. Start year must be less than or equal to end year.")
+
+    available_set = _available_seasons_set(client=client)
     seasons_to_fetch = [year for year in range(target_start, target_end + 1) if year in available_set]
     if not seasons_to_fetch:
         raise ValueError(
@@ -163,4 +215,3 @@ def _upsert_race_and_winner(
             defaults={"driver": driver_obj, "constructor": constructor_obj},
         )
         summary.winners_upserted += 1
-

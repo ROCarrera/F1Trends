@@ -10,6 +10,7 @@ Minimal local dashboard for Formula 1 constructor/driver win trends using the Jo
 - Local SQLite cache for seasons, races, and winners
 - A one-click refresh flow (`POST /refresh`) and a CLI refresh command
 - Trend charts for constructor and driver wins by season
+- Dashboard refresh options: start year, optional end year, and `Include latest season`
 
 ## API
 - Base URL: `http://api.jolpi.ca/ergast/f1/`
@@ -44,7 +45,11 @@ python manage.py refresh_f1 --seasons 2005:2025
 Alternative (UI):
 1. Start server with `python manage.py runserver`
 2. Open `http://127.0.0.1:8000/`
-3. Click **Refresh Data**
+3. In **Refresh Options**, set:
+   - `Start year` (optional)
+   - `End year` (optional)
+   - `Include latest season` (optional)
+4. Click **Refresh Data**
 
 ### 4) Explore the dashboard
 After refresh:
@@ -81,6 +86,11 @@ python manage.py refresh_f1
 ```
 or click **Refresh Data** in the UI.
 
+UI examples:
+- Start `2020`, End `2024` => refreshes `2020:2024`
+- Start `2020` + `Include latest season` => resolves to `2020:<latest available>`
+- Leave both years empty + `Include latest season` => resolves to default `2005:<latest available>`
+
 Refresh is idempotent: re-running the same range updates existing rows and does not create duplicates.
 
 ## Project Architecture
@@ -93,7 +103,7 @@ Refresh is idempotent: re-running the same range updates existing rows and does 
   - `urls.py`: app routes (`/`, `/refresh`, `/predictions/`, `/legends/`, `/profiles/`)
   - `templates/dashboard/`: Tailwind + Chart.js templates
   - `services/jolpica.py`: Jolpica API client (requests, retries, parsing, throttling)
-  - `services/refresh.py`: refresh orchestration + upsert logic + range parsing
+  - `services/refresh.py`: refresh orchestration + latest-season detection + range parsing + upsert logic
   - `services/predictions.py`: deterministic heuristic scoring for `/predictions/`
   - `services/legends.py`: Hall of Fame aggregations + era parsing/filtering
   - `services/profiles.py`: 2026 listings + driver/constructor profile summaries
@@ -131,7 +141,7 @@ Test suite covers:
 
 ### Empty seasons in selected range
 - Symptom: refresh reports no available seasons in the chosen interval.
-- Action: choose a broader or valid range, or run without `--seasons` to use default (`2005:latest available`).
+- Action: choose a broader or valid range, use UI `Include latest season`, or run without `--seasons` to use default (`2005:latest available`).
 
 ### Dashboard shows no charts/data
 - Cause: no winners cached yet.
